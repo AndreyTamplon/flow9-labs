@@ -1,0 +1,121 @@
+import runtime;
+import ds/array;
+import ds/tree;
+import string;
+
+//--------------------------- task 1 ---------------------------
+// converts an array of integers into an array of strings
+ia2sa(a : [int]) -> [string]{
+	map(a, i2s);
+}
+//--------------------------------------------------------------
+
+//--------------------------- task 2 ---------------------------
+// counts the sum of integers in an array
+sum (a : [int]) -> int{
+	fold(a, 0, \x, y -> x + y);
+}
+//--------------------------------------------------------------
+
+//--------------------------- task 3 ---------------------------
+// calculates the n first fibonacci numbers: 0, 1, 1, 2, 3, 5, .... a) recursive implementation b) with tail recursion c) using array references
+simple_rec_fib(n : int) -> [int]{
+	if(n <= 0){
+		[];
+	}
+	else if(n == 1){
+		[0];
+	}
+	else if(n == 2){
+		[0, 1];
+	}
+	else {
+		fib_prev = simple_rec_fib(n - 1);
+		sum = fib_prev[n - 2] + fib_prev[n - 3];
+		fib_array = concat(fib_prev, [sum]);
+		fib_array;
+	}
+
+}
+
+tail_rec_fib_helper(n : int, i : int, arr : [int]) -> [int]
+{
+	if (i == n) {
+		arr;
+	}
+	else {
+		if (i == 1){
+			buf = arrayPush(arr, 1);
+			tail_rec_fib_helper(n, i + 1, buf);
+		}
+		else {
+			buf = concat(arr, [arr[i - 2] + arr[i - 1]]);
+			tail_rec_fib_helper(n, i + 1, buf);
+		}
+		
+	}
+}
+
+tail_rec_fib(n : int) -> [int]{
+	if(n == 0){
+		[];
+	}
+	else{
+		tail_rec_fib_helper(n, 1, [1]);
+	}
+}
+
+ref_rec_fib_helper(n: int, i : int, arr : ref [int]) -> [int]{
+	if(i >= n){
+		^arr;
+	}
+	else {
+		refArrayPush(arr, ^arr[i - 1] + ^arr[i - 2]);
+		ref_rec_fib_helper(n, i + 1, arr);
+	}
+}
+
+ref_rec_fib(n: int)
+{
+	if(n == 0){
+		[];
+	}
+	else if(n == 1){
+		[1];
+	}
+	else{
+		arr = ref [1, 1];
+		ref_rec_fib_helper(n, 2, arr);
+	}
+}
+//--------------------------------------------------------------
+
+//--------------------------- task 4 ---------------------------
+// Find all pairs of indices (i, o) such that t_y + t_o == m
+
+inds(arr : [int], m : int) -> [Pair<int, int>]{
+	tree = foldi(arr, makeTree(), \i, tree, value -> setTree(tree, value, arrayPush(getTreeArrayValue(tree, value), i)));
+	raw_res = foldi(arr, [], \i, ans, value -> switch (lookupTree(tree, m - value))
+	{
+		Some(index) : concat(ans, map(index, \x -> if (x < i) Pair(x, i) else Pair(-1, -1)));
+		None(): ans;
+	});
+	removeAll(raw_res, Pair(-1, -1));
+}
+
+
+main() {
+	a = [1, 2, 3];
+	// println(ia2sa(a));
+	println(strGlue(ia2sa(a), ", "));
+	println(sum(a));
+	b = simple_rec_fib(10);
+	c = tail_rec_fib(10);
+	d = ref_rec_fib(10);
+	println(b);
+	println(c);
+	println(d);
+	e = [1, 2, 2, 3, 4, 4, 1, 9];
+	m = 4;
+	println(inds(e, m));
+}
