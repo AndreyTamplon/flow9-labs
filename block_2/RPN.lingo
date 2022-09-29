@@ -1,0 +1,15 @@
+exp = ob s exp:e1 r_s exp:e2 r_s "^" s cb { Pow(:e1, :e2) } 
+	| ob s exp:e1 r_s exp:e2 r_s "*" s cb { Mul(:e1, :e2) }
+	| ob s exp:e1 r_s exp:e2 r_s "/" s cb { Div(:e1, :e2) } 
+	| ob s exp:e1 r_s exp:e2 r_s "+" s cb { Add(:e1, :e2) }
+	| ob s exp:e1 r_s exp:e2 r_s "-" s cb { Sub(:e1, :e2) }
+    | letter+ $v { Var($v) }
+	| double:e { :e };
+ob = '(';
+cb = ')';
+s = ' '*;
+r_s = ' '+;
+double = double_$d { Double(s2d($d)) };
+double_ = '-'? digit+ '.'? digit*;
+digit = '0'-'9';
+letter = 'A'-'Z' | 'a'-'z';

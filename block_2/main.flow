@@ -1,0 +1,229 @@
+import runtime;
+import string;
+import sys/system;
+import math/math;
+import lingo/pegcode/parsic;
+import lingo/pegcode/driver;
+
+Exp ::= Pow, Mul, Div, Add, Sub, Double, Var;
+	Pow : (e1 : Exp, e2 : Exp);
+	Mul : (e1 : Exp, e2 : Exp);
+	Div : (e1 : Exp, e2 : Exp);
+	Add : (e1 : Exp, e2 : Exp);
+	Sub : (e1 : Exp, e2 : Exp);
+	Double : (d : double);
+	Var : (v : string);
+/*
+Normally using the pegcompiler directly to compile and test your grammar is the best way to develop it, 
+but sometimes, you want to use special semantic actions or integrate the grammar in an interactive program. 
+In this case, flow code like the following will work to prepare and run the grammar:
+*/
+simpleGrammarOp : ref Maybe<[PegOp]> = ref None();
+simpleGrammar() {
+	onlyOnce(simpleGrammarOp, \ -> {
+		compilePegGrammar("#include labs\block_2\peg.lingo");
+	});
+}
+
+RPNGrammar() {
+	onlyOnce(simpleGrammarOp, \ -> {
+		compilePegGrammar("#include labs\block_2\RPN.lingo");
+	});
+}
+
+
+getUserInput() -> string {
+	println("Enter the expression");
+	rtrim2(readUntil("\n"), "\n");
+}
+
+getDifferenciateVariable() -> string {
+	rtrim2(readUntil("\n"), "\n");
+}
+
+transformStringToAST(s : string) {
+	parsic(simpleGrammar(), s, defaultPegActions);
+}
+
+transformASTToString(AST : Exp) -> string {
+	switch (AST) {
+		Pow(e1, e2): concatStrings(["(", transformASTToString(e1), " ^ ", transformASTToString(e2), ")"]);
+		Mul(e1, e2): concatStrings(["(", transformASTToString(e1), " * ", transformASTToString(e2), ")"]);
+		Div(e1, e2): concatStrings(["(", transformASTToString(e1), " / ", transformASTToString(e2), ")"]);
+		Add(e1, e2): concatStrings(["(", transformASTToString(e1), " + ", transformASTToString(e2), ")"]);
+		Sub(e1, e2): concatStrings(["(", transformASTToString(e1), " - ", transformASTToString(e2), ")"]);
+		Double(e) : d2s(e);
+		Var(e) : e;
+	}
+}
+
+calculateAST(AST : Exp, variablesTree: Tree<string, double>) -> double {
+	switch (AST) {
+		Pow(e1, e2) : dpow(calculateAST(e1, variablesTree), calculateAST(e2, variablesTree));
+		Mul(e1, e2) : calculateAST(e1, variablesTree) * calculateAST(e2, variablesTree);
+        Div(e1, e2) : {
+			numerator = calculateAST(e1, variablesTree);
+			denominator = calculateAST(e2, variablesTree);
+			numerator / denominator;
+		}
+        Add(e1, e2) : calculateAST(e1, variablesTree) + calculateAST(e2, variablesTree);
+        Sub(e1, e2) : calculateAST(e1, variablesTree) - calculateAST(e2, variablesTree);
+        Double(d) : d;
+		Var(v): lookupTreeDef(variablesTree, v, doubleMin);
+
+    }
+}
+
+inputVariablesIntoTree() -> Tree<string, double> {
+    variables = strSplit(getUrlParameter("Variables"), ",");
+    fold(variables, makeTree(),\ tree, variable -> {setTree(tree, variable, s2d(getUrlParameter(variable)))});
+}
+
+ASTtoRPN(AST : Exp) {
+	switch (AST) {
+		Pow(e1, e2): concatStrings(["(", ASTtoRPN(e1), " ", ASTtoRPN(e2), " ^)"]);
+		Mul(e1, e2): concatStrings(["(", ASTtoRPN(e1), " ", ASTtoRPN(e2), " *)"]);
+		Div(e1, e2): concatStrings(["(", ASTtoRPN(e1), " ", ASTtoRPN(e2), " /)"]);
+		Add(e1, e2): concatStrings(["(", ASTtoRPN(e1), " ", ASTtoRPN(e2), " +)"]);
+		Sub(e1, e2): concatStrings(["(", ASTtoRPN(e1), " ", ASTtoRPN(e2), " -)"]);
+		Double(e) : d2s(e);
+		Var(e) : e;
+	}
+}
+
+
+RPNtoAST(RPN : string) -> Exp {
+	parsic(compilePegGrammar("#include labs\block_2\RPN.lingo"), RPN, defaultPegActions);
+}
+
+simplify(AST : Exp) -> Exp {
+	switch(AST) {
+		Add(e1, e2) : {
+			simple_e1 = simplify(e1);
+			simple_e2 = simplify(e2);
+			if(simple_e1 == Double(0.0)) {
+				simple_e2;
+			}
+			else if(simple_e2 == Double(0.0)) {
+				simple_e1;
+			}
+			else {
+				Add(simple_e1, simple_e2);
+			}
+
+		}
+		Mul(e1, e2) : {
+			simple_e1 = simplify(e1);
+			simple_e2 = simplify(e2);
+			if(simple_e1 == Double(1.0)) {
+				simple_e2;
+			}
+			else if(simple_e2 == Double(1.0)) {
+				simple_e1;
+			}
+			else if(simple_e1 == Double(0.0) || simple_e2 == Double(0.0)){
+				Double(0.0);
+			}
+			else {
+				Mul(simple_e1, simple_e2);
+			}
+		}
+		Sub(e1, e2) : {
+			simple_e1 = simplify(e1);
+			simple_e2 = simplify(e2);
+			if(simple_e1 == simple_e2) {
+				Double(0.0);
+			}
+			else if(simple_e2 == Double(0.0)){
+				simple_e1;
+			}
+			else {
+				Sub(simple_e1, simple_e2);
+			}
+
+		}
+		Div(e1, e2) : {
+			simple_e1 = simplify(e1);
+			simple_e2 = simplify(e2);
+			if(simple_e2 == Double(1.0)) {
+				simple_e1;
+			}
+			else if(simple_e1 == Double(0.0)){
+				Double(0.0);
+			}
+			else if(simple_e1 == simple_e2){
+				Double(1.0);
+			}
+			else {
+				Div(simple_e1, simple_e2);
+			}
+
+		}
+		Pow(e1, e2) : {
+			simple_e1 = simplify(e1);
+			simple_e2 = simplify(e2);
+			if(simple_e2 == Double(1.0)) {
+				simple_e1;
+			}
+			else if(simple_e2 == Double(0.0)){
+				Double(1.0);
+			}
+			else if(simple_e1 == Double(0.0)){
+				Double(0.0);
+			}
+			else {
+				Pow(simple_e1, simple_e2);
+			}
+		}
+		default : AST;
+	}
+}
+
+differentiate(AST : Exp, variable : string) -> Exp{
+	switch(AST) {
+		Pow(e1, e2) : Mul(Mul(e2, Pow(e1, Sub(e2, Double(1.0)))), differentiate(e1, variable));
+		Mul(e1, e2) : Add(Mul(differentiate(e1, variable), e2), Mul(e1, differentiate(e2, variable)));
+		Div(e1, e2) : Div(Sub(Mul(differentiate(e1, variable), e2), Mul(e1, differentiate(e2, variable))), Pow(e2, Double(2.0)));
+        Add(e1, e2) : Add(differentiate(e1, variable), differentiate(e2, variable));
+        Sub(e1, e2) : Sub(differentiate(e1, variable), differentiate(e2, variable));
+        Double(e) : Double(0.0);
+        Var(v) : {
+			if (v == variable) {
+				Double(1.0);
+			}
+			else {
+				Double(0.0);
+			}
+		};
+    }
+}
+
+
+main() {
+	variablesTree = inputVariablesIntoTree();
+	userInput = getUserInput();
+	AST = transformStringToAST(userInput);
+	print("AST = ");
+	println(AST);
+	str = transformASTToString(AST);
+	print("AST to string = ");
+	println(str);
+	result = calculateAST(AST, variablesTree);
+	print("AST = ");
+	println(result);
+	RPN = ASTtoRPN(AST);
+	print("RPN = ");
+	println(RPN);
+	RPN_AST = RPNtoAST(RPN);
+	RPN_str = transformASTToString(RPN_AST);
+	print("RPN to string = ");
+	println(RPN_str);
+	simplifiedAST = simplify(AST);
+	print("Simplified = ");
+	println(simplifiedAST);
+	println("differentiate by: ");
+    differentiate_variable = rtrim2(readUntil("\n"), "\n");
+	print("Differenciate result = ");
+	diff_result = differentiate(simplifiedAST, differentiate_variable);
+	println(simplify(diff_result));
+}
