@@ -1,0 +1,37 @@
+vnemoProgram = ws variableDeclaration*:d ws state*:s {VnemoProgram(:d, :s)};
+variableDeclaration = ws "VAR" ws variable:v ws ":" ws type:t ws ";" ws {VariableDeclaration(:v, :t)};
+
+type  = int | array;
+int   =  ws "INT" ws {Integer()};
+array =  ws "[" ws type:t ws "]" ws {Array(:t)};
+
+state = assign | if | print;
+
+assign = ws (digit+)$d ws ":" ws letter+$l ws ":=" ws expression:e ws "GOTO" ws "{" ws label*:labels ws "}" ws 
+{AssignmentStatement(s2i($d), $l, :e, :labels)};
+
+if = ws (digit+)$d ws ":" ws "IF" ws expression:e1 ws comparisonOperator$op ws
+                          expression:e2 ws "THEN" ws "{" ws label*:labels1 ws "}" ws "ELSE" ws "{" ws
+                          label*:labels2 ws "}" ws { IfStatement(s2i($d), $e1, :op, :e2, :labels1, :labels2) };
+
+print = ws (digit+)$d ws ":" ws "PRINT" ws "(" expression:e ")" ws "GOTO" ws
+                          "{" ws label*:labels ws "}" ws {PrintStatement(s2i($d), :e, :labels)};
+
+
+
+expression = binaryOperation | app | upd | variable | number;
+binaryOperation = ws "(" ws expression:e1 ws binaryOperator$op ws expression:e2 ws ")" ws {BinaryOperation(:e1, $op, :e2)};
+app = ws "APP" ws "(" ws expression:e1 ws "," ws expression:e2 ws ")" ws {App(:e1, :e2)};
+upd = ws "UPD" ws "(" ws expression:e1 ws "," ws expression:e2 ws "," ws expression:e3 ws ")" ws {Upd(:e1, :e2, :e3)};
+variable = letter+ $v {Variable($v)};
+number = ws digit+$d ws {Number(s2i($d))};
+
+binaryOperator = "+" | "-" | "*" | "/" | "%";
+comparisonOperator = "<" | "<=" | ">" | ">=" | "==" | "!=";
+
+
+digit = '0'-'9';
+
+letter = 'A'-'Z' | 'a'-'z';
+label = ws digit+$d ws ","? ws {Label(s2i($d))};
+ws = (' ' | '\t' | '\n' | '\r')*;

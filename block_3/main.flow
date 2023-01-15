@@ -1,0 +1,14 @@
+import vnemo_executor;
+import vnemo_translator;
+import nemo_parser;
+import vnemo_parser;
+import string_utils;
+
+main () {
+    file_name = ""; // put path to your nemo program here
+    nemo = stringToNemo(getFileContent(file_name));
+    vnemo_str = translateNemoToVnemo(nemo);
+    println(vnemo_str);
+    vnemo = strToVnemo(vnemo_str);
+    executeVnemo(vnemo);
+}

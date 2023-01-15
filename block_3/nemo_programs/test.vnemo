@@ -1,0 +1,16 @@
+VAR src : [INT];
+VAR dest : [INT];
+VAR len : INT;
+VAR index : INT;
+0: src := UPD(src, 0, 1) GOTO {1}
+1: src := UPD(src, 1, 100) GOTO {2}
+2: src := UPD(src, 2, 32) GOTO {3}
+3: src := UPD(src, 3, 321) GOTO {4}
+4: len := 4 GOTO {5}
+5: index := 0 GOTO {6}
+6: IF index < len THEN {7} ELSE {9}
+7: dest := UPD(dest, index, APP(src, 0)) GOTO {8}
+8: index := (index + 1) GOTO {6}
+9: PRINT(src) GOTO {10}
+10: PRINT(dest) GOTO {11}
+11: PRINT(len) GOTO {12}

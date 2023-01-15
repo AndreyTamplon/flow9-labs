@@ -76,6 +76,7 @@ calculateAST(AST : Exp, variablesTree: Tree<string, double>) -> double {
 
 inputVariablesIntoTree() -> Tree<string, double> {
     variables = strSplit(getUrlParameter("Variables"), ",");
+	println(variables);
     fold(variables, makeTree(),\ tree, variable -> {setTree(tree, variable, s2d(getUrlParameter(variable)))});
 }
 
@@ -110,7 +111,6 @@ simplify(AST : Exp) -> Exp {
 			else {
 				Add(simple_e1, simple_e2);
 			}
-
 		}
 		Mul(e1, e2) : {
 			simple_e1 = simplify(e1);
@@ -205,25 +205,33 @@ main() {
 	AST = transformStringToAST(userInput);
 	print("AST = ");
 	println(AST);
+
 	str = transformASTToString(AST);
 	print("AST to string = ");
 	println(str);
+
 	result = calculateAST(AST, variablesTree);
-	print("AST = ");
+	print("result = ");
 	println(result);
+
 	RPN = ASTtoRPN(AST);
 	print("RPN = ");
 	println(RPN);
+
 	RPN_AST = RPNtoAST(RPN);
 	RPN_str = transformASTToString(RPN_AST);
 	print("RPN to string = ");
+
 	println(RPN_str);
 	simplifiedAST = simplify(AST);
 	print("Simplified = ");
-	println(simplifiedAST);
+
+	println(transformASTToString(simplifiedAST));
 	println("differentiate by: ");
-    differentiate_variable = rtrim2(readUntil("\n"), "\n");
+    // differentiate_variable = rtrim2(readUntil("\n"), "\n");
 	print("Differenciate result = ");
-	diff_result = differentiate(simplifiedAST, differentiate_variable);
-	println(simplify(diff_result));
+	
+	diff_result = differentiate(simplifiedAST, "x");
+	println(transformASTToString(simplify(diff_result)));
+	println(calculateAST(simplify(diff_result), variablesTree));
 }

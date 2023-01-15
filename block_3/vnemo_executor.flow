@@ -1,0 +1,289 @@
+import nemo_parser;
+import vnemo_parser;
+import string_utils;
+
+export {
+    executeVnemo(program: VnemoProgram) {
+    lastLabel = fold(program.s, 0, \prevMax, elem -> max(elem.d, prevMax));
+
+    vnemoExecution([VMState(Label(0), fold(program.d, makeTree(), \acc, vd ->
+            switch (lookupTree(acc, vd.v.v)) {
+                Some(i) : {
+                    println("Variable already declared");
+                    acc;
+                };  
+                None() : setTree(acc, vd.v.v,  switch (vd.t) {
+                                                        Integer() : IntegerV(0);
+                                                        Array(a) : ArrayV([]);
+                                                    }
+                );
+            }
+        ))], [], program, lastLabel);
+    }
+}
+
+Value ::= IntegerV, ArrayV;
+    IntegerV             (i : int);
+    ArrayV               (a : [Value]);
+
+VMState (label: Label, values: Tree<string, Value>);
+
+
+
+
+vnemoExecution(states : [VMState], executed: [VMState], program: VnemoProgram, lastLabel: int) {
+    state = states[0];
+    newStates = concat(tail(states), executeVMState(program, state, lastLabel));
+    if (length(newStates) != 0) {
+        vnemoExecution(newStates, concat(executed, [state]), program, lastLabel);
+    }
+}
+
+executeVMState(program: VnemoProgram, state: VMState, lastLabel) -> [VMState] {
+    if (state.label.d > lastLabel) {
+        [];
+    } else {
+        switch (program.s[state.label.d]) {
+            AssignmentStatement (d, l, e, labels): executeAssignment(l, e, labels, state);
+            IfStatement (d, e1, op, e2, labels1, labels2): executeIf(e1, op, e2, labels1, labels2, state);
+            PrintStatement (d, e, labels): executePrint(e, labels, state);
+        }
+    }
+}
+
+addNewState(labels: [Label], tree: Tree<string, Value>) -> [VMState] {
+    fold(labels, [], \acc, l -> concat(acc, [VMState(l, tree)]));
+}
+
+executeAssignment (variable: string, expression: Expression, labels: [Label], state: VMState) -> [VMState] {
+    value = lookupTree(state.values, variable);
+    if (isNone(value)) {
+        println("Unknown variable=" + variable);
+
+        [];
+    }
+    else {
+        valueNotNull = either(value, IntegerV(0));
+        switch (executeExpression(expression, state.values)) {
+            Some(expressionValue) : {
+                switch (expressionValue) {
+                    IntegerV(num) : {
+                        switch (valueNotNull) {
+                            IntegerV(i) : {
+                                addNewState(labels, setTree(state.values, variable, IntegerV(num)));
+                            };
+                            default : {
+                                println("Assign types mismatch");
+                                [];
+                            };
+                        }
+                    };
+                    ArrayV(arr) : {
+                        switch (valueNotNull) {
+                            ArrayV(i) : {
+                                addNewState(labels, setTree(state.values, variable, ArrayV(arr)));
+                            };
+                            default : {
+                                println("Assign types mismatch");
+                                [];
+                            };
+                        }
+                    };
+                }
+            };
+            None(): {
+                [];
+            }
+        }
+    }
+}
+
+compareExpressions(e1: Expression, op: string, e2: Expression, values: Tree<string, Value>) -> Maybe<bool> {
+    e1Val=executeExpression(e1, values);
+    e2Val=executeExpression(e2, values);
+    if (isNone(e1Val) || isNone(e2Val)) {
+        None()
+
+    } else {
+        switch (either(e1Val, IntegerV(0))) {
+            IntegerV(e1IntValue):
+
+                switch (either(e2Val, IntegerV(0))) {
+                    IntegerV(e2IntValue): {
+                        Some(
+                             if (op == "==") {e1IntValue == e2IntValue}  
+                             else if (op == "!=") {e1IntValue != e2IntValue}
+                             else if (op == "<=") {e1IntValue <= e2IntValue} 
+                             else if (op == ">=") {e1IntValue >= e2IntValue} 
+                             else if (op == "<") {e1IntValue < e2IntValue}
+                             else if (op == ">") {e1IntValue > e2IntValue} 
+                             else {false}
+                            )
+                    }
+                    default : {
+                        println("Operand type error");
+                        None();
+                    }
+                }
+            default : {
+                println("Operand type error");
+                None();
+            }
+        };
+    }
+}
+
+executeIf(e1: Expression, op: string, e2: Expression, labels1: [Label], labels2: [Label], state: VMState) -> [VMState] {
+    switch (compareExpressions(e1, op, e2, state.values)) {
+        Some(compareResult) : {
+            if (compareResult){
+                addNewState(labels1, state.values);
+            } else {
+                addNewState(labels2, state.values);
+            }
+        };
+
+        None() : {
+
+            [];
+
+        }
+
+    }
+}
+
+valueToString(value: Value) -> string {
+	switch (value) {
+		IntegerV(i): i2s(i);
+		ArrayV(a): "[" + strGlue(map(a, valueToString), ", ") + "]";
+	}
+}
+
+executePrint(e: Expression, labels: [Label], state: VMState) -> [VMState] {
+    switch (executeExpression(e, state.values)) {
+
+        Some(value) : {
+            println(valueToString(value));
+            addNewState(labels, state.values);
+        };
+        None() : {
+
+            [];
+        }
+    }
+}
+
+executeExpression(expression: Expression, values: Tree<string, Value>) -> Maybe<Value> {
+	switch (expression) {
+		BinaryOperation(e1, op, e2): executeBinaryOperation(executeExpression(e1, values), op, executeExpression(e2, values));
+		App(e1, e2): executeApp(executeExpression(e1, values), executeExpression(e2, values));
+        Upd(e1, e2, e3): executeUpd(executeExpression(e1, values), executeExpression(e2, values), executeExpression(e3, values));	
+		Variable(v): lookupTree(values, v);
+		Number(number): Some(IntegerV(number));
+	}
+}
+
+executeBinaryOperation(v1: Maybe<Value>, op: string, v2: Maybe<Value>) -> Maybe<Value> {
+    if (isNone(v1) || isNone(v2)){
+        None()
+    } else{
+        switch (either(v1, IntegerV(0))) {
+            IntegerV(v1IntValue): {
+                switch (either(v2, IntegerV(0))) {
+                    IntegerV(v2IntValue):
+               
+                        Some(IntegerV(
+                                     if (op == "+") {v1IntValue + v2IntValue}
+                                     else if (op == "*") {v1IntValue * v2IntValue}
+                                     else if (op == "-") {v1IntValue - v2IntValue}
+                                     else if (op == "/") {v1IntValue / v2IntValue}
+                                     else {IntegerV(0).i;}
+                                    )
+                            )
+                    default: {
+                        println("Operand type error");
+                        None();
+                    }
+                }
+            }
+            default: {
+                println("Operand type error");
+                None();
+            }
+        };
+    }
+}
+
+executeApp(array: Maybe<Value>, index: Maybe<Value>) -> Maybe<Value> {
+    if (isNone(array) || isNone(index)) {
+        None();
+    } else {
+        switch (either(array, ArrayV([]))) {
+            ArrayV(arrayValue) : {
+                switch (either(index, IntegerV(0))) {
+                    IntegerV(indexValue) : {
+                        if (indexValue >= 0 && indexValue < length(arrayValue)) {
+                            Some(arrayValue[indexValue]) 
+                   
+                        } else {
+                            None();
+
+                        }
+
+                    }
+
+                    default : {
+                        println("Index type error");
+                        None();
+                    }
+                }
+
+            }
+            default : {
+                println("APP type error");
+                None();
+
+            }
+        };
+    }
+}
+
+executeUpd(array: Maybe<Value> , index: Maybe<Value>, newValue: Maybe<Value>) -> Maybe<Value> {
+    if (isNone(array) || isNone(index) || isNone(newValue)) {
+        None();
+    } else {
+        switch (either(newValue, IntegerV(0))) {
+            IntegerV(newValueValue) : { 
+                    switch (either(array, ArrayV([]))) {
+                        ArrayV(arr) : {
+                            switch (either(index, IntegerV(0))) {
+                                IntegerV(indexValue) :
+                                    if (indexValue <= length(arr)) {
+                                       Some(ArrayV(replace(arr, indexValue, IntegerV(newValueValue))));
+                                    } else {
+                                        println("Index out of bounds error");
+                           
+                                        None();
+                                    }
+                                default : {
+                                    println("Index type error");
+                                    None();
+                                }
+                            }
+                        }
+                        default : {
+
+                            println("UPD type error");
+                            None();
+                        }
+                    }
+            }
+            default : {
+                println("Value type error");
+                None();
+            }
+        };
+    }
+}
+
+

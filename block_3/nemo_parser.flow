@@ -1,0 +1,81 @@
+import maybe;
+import string;
+import lingo/pegcode/driver;
+import ds/array;
+
+export{
+    Program(d : [VariableDeclaration], b : Body);
+    VariableDeclaration: (v: Variable, t: Type);
+
+    Type ::= Integer, Array;
+    Integer ();
+    Array (a: Type);
+    
+    Body ::= Assign, Sequence, Test, Choice, Iteration, Print;
+    Assign: (v: Variable, e: Expression);
+    Sequence: (b: [Body]);
+    Test: (e1: Expression, op: string, e2: Expression);
+    Choice: (b: [Body]);
+    Iteration: (b: Body);
+    Print: (e: Expression);
+
+    Expression ::= BinaryOperation, App, Upd, Variable, Number;
+    BinaryOperation (e1: Expression, op: string, e2: Expression);
+    App (e1: Expression, e2: Expression);
+    Upd (e1: Expression, e2: Expression, e3: Expression);
+    Variable (v: string);
+    Number (i: int);
+
+    stringToNemo(str : string) -> Program {
+        grammar = "#include labs\block_3\nemo.lingo";
+        specialPegActions = {
+            t1 = setTree(defaultPegActions.t, "BuildSequenceOperation", buildSequenceOperation);
+            t2 = setTree(t1, "BuildChoiceOperation", buildChoiceOperation);
+            t3 = setTree(t2, "BuildWhile", buildWhile);
+            t4 = setTree(t3, "BuildIf", buildIf);
+            SemanticActions(t4);
+        }
+        parsic(compilePegGrammar(grammar), str, specialPegActions);
+    }
+}
+
+
+
+
+buildChoiceOperation(data : [flow]) -> Choice {
+    Choice(concat([data[0]], data[1]));
+}
+buildSequenceOperation(data : [flow]) -> Sequence {
+    Sequence(concat([data[0]], data[1]));
+}
+
+
+buildWhile(data : [flow]) -> Sequence {
+    whileExpression = Test(data[0], data[1], data[2]);
+    body = data[3];
+    Sequence([Iteration(Sequence([Test(data[0], data[1], data[2]), body])), Test(data[0], inverseComparsion(data[1]), data[2])]);
+}
+
+buildIf(data : [flow]) -> Choice {
+    if_ = Sequence([Test(data[0], data[1], data[2]), data[3]]);
+    else_ = Sequence([Test(data[0], inverseComparsion(data[1]), data[2]), data[4]]);
+    Choice([if_, else_]);
+}
+
+inverseComparsion(op : string) -> string {
+    if (op == ">") {
+       "<=";
+    } else if (op == ">="){
+       "<";
+    } else if (op == "<") {
+       ">=";
+    } else if (op == "<=") {
+       ">";
+    } else if (op == "==") {
+       "!=";
+    } else if (op == "!=") {
+       "==";
+    } else {
+       op;
+    }
+}

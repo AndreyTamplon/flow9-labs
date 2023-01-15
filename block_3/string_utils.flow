@@ -1,0 +1,72 @@
+import string;
+import vnemo_parser;
+import nemo_parser;
+export {
+
+    vnemoToString(vnemo : VnemoProgram) {
+        variablesDeclarationToString(vnemo.d)
+        + "\n" + 
+        strGlue(map(vnemo.s, statementToString), "\n");
+    }
+
+    programToString(program : Program) {
+        variablesDeclarationToString(program.d) + "\n" + bodyToString(program.b);
+    }
+
+    statementToString(statement : Statement) -> string {
+    	switch (statement) {
+    		AssignmentStatement(d, l, e, labels): i2s(d) + ": " + 
+            l + " := " + expressionToString(e) + " GOTO {" + strGlue(map(labels, labelToString), ", ") + "}";
+    		IfStatement(d, e1, op, e2, labels1, labels2): i2s(d) + ": " + 
+                "IF " + expressionToString(e1) + " " + op + " " + expressionToString(e2) + " " + "THEN {" + 
+                strGlue(map(labels1, labelToString), ", ") + "}" + " ELSE " + "{" + strGlue(map(labels2, labelToString), ", ") + "}";
+    		PrintStatement(d, e, labels): i2s(d) + 
+                ": PRINT(" + expressionToString(e) + ") GOTO {" + strGlue(map(labels, labelToString), ", ") + "}"; 
+    	}
+    }
+
+    variablesDeclarationToString(d : [VariableDeclaration]) -> string {
+        strGlue(map(d, variableDeclarationToString), "\n"); 
+    }
+
+}
+
+
+
+labelToString(label: Label) {
+    i2s(label.d);
+}
+
+expressionToString(expression: Expression) -> string {
+        switch (expression: Expression) {
+                BinaryOperation (e1, op, e2): "(" + expressionToString(e1) + " " + op + " " + expressionToString(e2) + ")";
+                App (e1, e2): "APP(" + expressionToString(e1) + ", " + expressionToString(e2) + ")";
+                Upd (e1, e2, e3): "UPD(" + expressionToString(e1) + ", " + expressionToString(e2) + ", " + expressionToString(e3) + ")";
+                Variable (v): v;
+                Number (i): i2s(i);
+        }
+    }
+
+bodyToString(body: Body) -> string {
+    switch(body) {
+        Assign (v, e): expressionToString(v) + ":= " + expressionToString(e);
+        Sequence (b): "{\n" + strGlue(map(b, bodyToString), ";\n") + "}\n";
+        Test (e1, op, e2): "(" + expressionToString(e1) + " " + op + " " + expressionToString(e2) + ")? ";
+        Choice (b): "(" + strGlue(map(b, bodyToString), " U ") + ")";
+        Iteration (b): "(" +  bodyToString(b) + " )* ";
+        Print (e): "PRINT(" + expressionToString(e) + ")";
+    }
+}
+
+typeToString(type: Type) -> string {
+    switch (type) {
+        Integer (): "INT";
+        Array(a): "[" + typeToString(a) + "]";
+    }
+}
+
+
+variableDeclarationToString(v : VariableDeclaration) {
+    "VAR " + expressionToString(v.v) + " : " + typeToString(v.t) + ";";
+}
+

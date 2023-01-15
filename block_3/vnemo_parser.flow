@@ -1,0 +1,22 @@
+import maybe;
+import string;
+import lingo/pegcode/driver;
+import ds/array;
+import nemo_parser;
+
+export{
+    VnemoProgram: (d : [VariableDeclaration], s : [Statement]);
+
+    
+    Statement::= AssignmentStatement, IfStatement, PrintStatement;
+    AssignmentStatement (d: int, l: string, e: Expression, labels: [Label]);
+    IfStatement (d: int, e1: Expression, op: string, e2: Expression, labels1: [Label], labels2: [Label]);
+    PrintStatement (d: int, e: Expression, labels: [Label]);
+
+    Label (d: int);
+
+    strToVnemo(str : string) {
+        parsic(compilePegGrammar("#include labs\block_3\vnemo.lingo"), str, defaultPegActions);
+    }
+}
+

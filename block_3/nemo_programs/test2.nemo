@@ -1,0 +1,11 @@
+VAR x : INT;
+VAR y : INT;
+VAR arr : [INT];
+{
+   y:= 77;
+   x := 1;
+   WHILE y < 100 DO {
+      y := (y + 1);
+      PRINT(y)
+   }
+}

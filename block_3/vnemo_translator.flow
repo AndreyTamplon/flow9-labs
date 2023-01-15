@@ -1,0 +1,82 @@
+import string;
+import string_utils;
+import lingo/pegcode/driver;
+import vnemo_parser;
+import nemo_parser;
+
+export {
+    translateNemoToVnemo(program: Program) -> string {
+        state = Translator(variablesDeclarationToString(program.d) + "\n", 0);
+        result = bodyToVnemoString(program.b, state).vnemoProgram;
+        result;
+    }
+}
+
+Translator(vnemoProgram: string, currentLabel: int);
+
+
+bodyToVnemoString(body: Body, state: Translator) -> Translator{
+    newLabel = state.currentLabel + 1;
+    switch (body) {
+        Assign(v, e): {
+            Translator(state.vnemoProgram + statementToString(
+                AssignmentStatement(state.currentLabel, v.v, e, [Label(newLabel)])) + "\n", newLabel);
+        }
+        Sequence(b): {
+            fold(b, state, \newState, bodyArg -> bodyToVnemoString(bodyArg, newState));
+        }
+        Test(e1, op, e2): {
+            Translator(state.vnemoProgram + 
+            statementToString(IfStatement(state.currentLabel, e1, op, e2, [Label(newLabel)], [])) + "\n", newLabel);
+        }
+        Choice(b): {
+            bodiesStates = splitBodies(b, state.currentLabel);
+            nextLabels = map(bodiesStates, \st -> st.currentLabel);
+            bodiesStartLabels = concat([state.currentLabel + 1], map(take(nextLabels, length(nextLabels) - 1), \label -> label + 1)); 
+            startChoice = statementToString(makeIfStatement(state.currentLabel, bodiesStartLabels)) + "\n";
+
+            lastBodyState = bodiesStates[length(bodiesStates) - 1];
+            end = lastBodyState.currentLabel;
+            bodiesCode = concatStrings(map(take(bodiesStates, length(bodiesStates) - 1), 
+            \st -> (st.vnemoProgram + statementToString(makeIfStatement(st.currentLabel, [end])) + "\n"))) + 
+            lastBodyState.vnemoProgram;
+            Translator(state.vnemoProgram + startChoice + bodiesCode, bodiesStates[length(bodiesStates) - 1].currentLabel);
+        }
+        Iteration(b): {
+            translatedBody = bodyToVnemoString(b, Translator("", newLabel));
+            end = translatedBody.currentLabel; 
+            println(end);
+            Translator(
+                state.vnemoProgram +
+                statementToString(makeIfStatement(state.currentLabel, [newLabel, end + 1])) + "\n" +
+                translatedBody.vnemoProgram + 
+                statementToString(makeIfStatement(end, [state.currentLabel])) + "\n",
+                end + 1);
+        }
+        Print(e): {
+            Translator(state.vnemoProgram + 
+            statementToString(PrintStatement(state.currentLabel, e, [Label(newLabel)])) + "\n", newLabel);
+        }
+    }
+}
+
+splitBodies(body: [Body], currentLabel: int) -> [Translator] {
+    fold(
+        tail(body),
+        [bodyToVnemoString(body[0], Translator("", currentLabel + 1))],
+        \acc, nextBody -> 
+                            concat(acc, [bodyToVnemoString(nextBody, 
+                            Translator("", acc[length(acc) - 1].currentLabel + 1))])
+    );
+}
+
+makeIfStatement(label: int, goto: [int]) -> IfStatement {
+    IfStatement(label
+        , Number(0)
+        , "=="
+        , Number(0)
+        , map(goto, \id -> Label(id))
+        , []
+    );
+}
+

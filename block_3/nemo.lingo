@@ -1,0 +1,36 @@
+program = ws variableDeclaration*:d ws body:b {Program(:d, :b)};
+variableDeclaration = ws "VAR" ws variable:v ws ":" ws type:t ws ";" ws {VariableDeclaration(:v, :t)};
+
+type  = int | array;
+int   =  ws "INT" ws {Integer()};
+array =  ws "[" ws type:t ws "]" ws {Array(:t)};
+
+
+body = assign | sequence | test | iteration | choice | print | while | if;
+assign = ws variable:v ws ":=" ws expression:e ws {Assign(:v, :e)};
+sequence = ws "{" ws body:b sequenceOpereator*:op ws "}" ws {BuildSequenceOperation(:b, :op)};
+test = ws "(" ws expression:e1 ws comparisonOperator$op ws expression:e2 ws ")?" ws {Test(:e1, $op, :e2)};
+iteration = ws "(" ws body:b ws ")*" ws {Iteration(:b)};
+choice  = ws "(" ws body:b choiceOperator*:op ws ")" ws {BuildChoiceOperation(:b, :op)};
+print  = ws "PRINT" ws "(" ws expression:e ws ")" ws {Print(:e)};
+while = ws "WHILE" ws expression:e1 ws comparisonOperator$op ws expression:e2 ws "DO" ws body:b ws {BuildWhile(:e1, $op, :e2, :b)};
+if = ws "IF" ws expression:e1 ws comparisonOperator$op ws expression:e2 ws "THEN" ws body:b1 ws "ELSE" ws body:b2 ws {BuildIf(:e1, $op, :e2, :b1, :b2)};
+
+expression = binaryOperation | app | upd | variable | number;
+binaryOperation = ws "(" ws expression:e1 ws binaryOperator$op ws expression:e2 ws ")" ws {BinaryOperation(:e1, $op, :e2)};
+app = ws "APP" ws "(" ws expression:e1 ws "," ws expression:e2 ws ")" ws {App(:e1, :e2)};
+upd = ws "UPD" ws "(" ws expression:e1 ws "," ws expression:e2 ws "," ws expression:e3 ws ")" ws {Upd(:e1, :e2, :e3)};
+variable = ws letter+ $v ws {Variable($v)};
+number = ws digit+$d ws {Number(s2i($d))};
+
+binaryOperator = "+" | "-" | "*" | "/" | "%";
+comparisonOperator = "==" | "!=" | "<=" | ">=" | "<" | ">";
+
+choiceOperator = ws "U" body;
+sequenceOpereator = ws ";" body;
+
+
+digit = '0'-'9';
+
+letter = 'A'-'Z' | 'a'-'z';
+ws = (' ' | '\t' | '\n' | '\r')*;

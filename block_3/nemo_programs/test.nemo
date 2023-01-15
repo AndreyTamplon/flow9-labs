@@ -1,0 +1,26 @@
+VAR x : INT;
+VAR y : INT;
+VAR arr : [INT];
+{
+   y:= 8;
+   (y <
+    7)?;
+   (
+      {
+         y:= 1;
+         PRINT(y)
+      }
+      U 
+      {
+         y:= 2;
+         PRINT(y)
+      }
+      U 
+      {
+         y:= 3;
+         PRINT(y)
+      }
+   );
+   arr := UPD(arr, 0, 1);
+   PRINT(arr)
+}
